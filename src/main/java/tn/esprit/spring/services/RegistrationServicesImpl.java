@@ -5,13 +5,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import tn.esprit.spring.entities.*;
 import tn.esprit.spring.repositories.ICourseRepository;
+import tn.esprit.spring.repositories.IInstructorRepository;
 import tn.esprit.spring.repositories.IRegistrationRepository;
 import tn.esprit.spring.repositories.ISkierRepository;
 
 import javax.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Slf4j
 @AllArgsConstructor
 @Service
@@ -20,6 +25,9 @@ public class RegistrationServicesImpl implements  IRegistrationServices{
     private IRegistrationRepository registrationRepository;
     private ISkierRepository skierRepository;
     private ICourseRepository courseRepository;
+
+    private final IInstructorRepository instructorRepository;
+
 
 
     @Override
@@ -100,7 +108,18 @@ public class RegistrationServicesImpl implements  IRegistrationServices{
 
     @Override
     public List<Integer> numWeeksCourseOfInstructorBySupport(Long numInstructor, Support support) {
-        return registrationRepository.numWeeksCourseOfInstructorBySupport(numInstructor, support);
-    }
+        Map<Course, List<Integer>> map = instructorRepository.findById(numInstructor)
+                .orElseThrow(() -> new IllegalArgumentException("No Instructor Found with this id " + numInstructor))
+                .getCourses().stream()
+                .filter(course -> course.getSupport().equals(support))
+                .map(Course::getRegistrations)
+                .flatMap(Collection::stream)
+                // .map(Registration::getNumWeek)
+                .collect(Collectors.groupingBy(
+                        Registration::getCourse,
+                        Collectors.mapping(Registration::getNumWeek, Collectors.toList())
+                ));
+
+        return registrationRepository.numWeeksCourseOfInstructorBySupport(numInstructor, support);    }
 
 }
